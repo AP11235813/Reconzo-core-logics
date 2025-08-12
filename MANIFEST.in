@@ -1,1 +1,2 @@
 include src/payments/*.pyx
+recursive-include src *.pyx *.pxd
