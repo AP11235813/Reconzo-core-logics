@@ -3,7 +3,8 @@ Name: reconzo-core-logics
 Version: 0.1.0
 Summary: Core payment reconciliation logic
 Author: Anupam Pandey
-Author-email: Anupam Pandey <your@email.com>
+Author-email: Anupam Pandey <anupam@reconzo.com>
+Platform: any
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.8

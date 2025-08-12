@@ -13,3 +13,4 @@ src/reconzo_core_logics.egg-info/PKG-INFO
 src/reconzo_core_logics.egg-info/SOURCES.txt
 src/reconzo_core_logics.egg-info/dependency_links.txt
 src/reconzo_core_logics.egg-info/top_level.txt
+src/reconzo_core_logics.egg-info/zip-safe
