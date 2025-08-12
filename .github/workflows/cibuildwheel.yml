@@ -6,6 +6,9 @@ on:
       - 'v*.*.*'    # run when you push tags like v0.1.0
   workflow_dispatch:  # optional manual trigger
 
+permissions:
+  contents: write
+
 jobs:
   build-linux:
     runs-on: ubuntu-latest
