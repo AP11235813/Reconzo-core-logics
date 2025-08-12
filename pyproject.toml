@@ -1,3 +1,20 @@
 [build-system]
 requires = ["setuptools>=61.0", "wheel", "Cython"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "reconzo-core-logics"
+version = "0.1.0"
+description = "Core payment reconciliation logic"
+requires-python = ">=3.9"
+authors = [
+  { name = "Anupam Pandey", email = "your@email.com" }
+]
+classifiers = [
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11"
+]
