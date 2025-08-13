@@ -9,6 +9,8 @@ on:
 permissions:
   contents: write
 
+cibuildwheel --output-dir wheelhouse -v
+
 jobs:
   build-linux:
     runs-on: ubuntu-latest
