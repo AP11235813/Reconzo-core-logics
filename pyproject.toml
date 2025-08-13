@@ -19,5 +19,5 @@ classifiers = [
     "Programming Language :: Python :: 3.11"
 ]
 
-[tool.setuptools]
-platforms = ["any"]
+# [tool.setuptools]
+# platforms = ["any"]
