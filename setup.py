@@ -11,6 +11,26 @@
 # )
 
 
+# from setuptools import setup, find_packages
+# from Cython.Build import cythonize
+# import glob
+
+# ext_modules = cythonize(
+#     glob.glob("src/payments/*.pyx"),
+#     compiler_directives={"language_level": "3"}
+# )
+
+# setup(
+#     name="payments",
+#     version="0.2.16",
+#     package_dir={"": "src"},
+#     packages=find_packages(where="src"),
+#     ext_modules=ext_modules,
+#     include_package_data=True,
+#     setup_requires=["Cython"]
+# )
+
+
 from setuptools import setup, find_packages
 from Cython.Build import cythonize
 import glob
@@ -22,10 +42,9 @@ ext_modules = cythonize(
 
 setup(
     name="payments",
-    version="0.2.16",
+    version="0.2.17",
     package_dir={"": "src"},
     packages=find_packages(where="src"),
     ext_modules=ext_modules,
     include_package_data=True,
-    setup_requires=["Cython"]
 )
