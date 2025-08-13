@@ -1,8 +1,5 @@
 name: Build wheels with cibuildwheel
 
-permissions:
-  contents: write
-
 on:
   push:
     tags:
