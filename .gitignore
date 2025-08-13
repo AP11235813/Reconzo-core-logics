@@ -18,6 +18,7 @@ src/payments/**/*.pxd
 
 # --- Ignore all Python sources in package, except public API stubs ---
 src/payments/**/*.py
+src/inventory/**/*.py
 !src/payments/__init__.py
 !src/payments/public_api.py
 # (Optional) keep these if you have them:
