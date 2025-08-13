@@ -782,7 +782,7 @@ def map_payments(
     )
     if not mkt:
         mapped_orders.rename(
-            columns={"TransactionTotalAmount_overheads": "marketing"}, inplace=True
+            columns={"TransactionTotalAmount": "marketing"}, inplace=True
         )
     else:
         mapped_orders = map_marketing(
