@@ -13,7 +13,7 @@ src/payments/**/*.c
 src/payments/**/*.cpp
 src/payments/**/*.so
 src/payments/**/*.pyd
-#src/payments/**/*.pyx
+src/payments/**/*.pyx
 src/payments/**/*.pxd
 
 # --- Ignore all Python sources in package, except public API stubs ---
