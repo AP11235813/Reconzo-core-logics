@@ -9,8 +9,6 @@ on:
 permissions:
   contents: write
 
-cibuildwheel --output-dir wheelhouse -v
-
 jobs:
   build-linux:
     runs-on: ubuntu-latest
@@ -22,7 +20,7 @@ jobs:
 
       - name: Build Linux wheels (manylinux)
         run: |
-          cibuildwheel --output-dir wheelhouse
+          cibuildwheel --output-dir wheelhouse -v
 
       - name: Upload linux wheels
         uses: actions/upload-artifact@v4
@@ -40,7 +38,7 @@ jobs:
 
       - name: Build macOS wheels
         run: |
-          cibuildwheel --output-dir wheelhouse
+          cibuildwheel --output-dir wheelhouse -v
 
       - name: Upload macos wheels
         uses: actions/upload-artifact@v4
@@ -59,7 +57,7 @@ jobs:
       - name: Build Windows wheels
         shell: bash
         run: |
-          cibuildwheel --output-dir wheelhouse
+          cibuildwheel --output-dir wheelhouse -v
 
       - name: Upload windows wheels
         uses: actions/upload-artifact@v4
