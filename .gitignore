@@ -1,2 +1,26 @@
-src/*.py
+# --- Build artifacts ---
+build/
+dist/
+*.egg-info/
+wheelhouse/
+
+# --- Virtual environments ---
+venv/
+.env/
+
+# --- Cython artifacts and compiled extensions ---
+src/payments/**/*.c
+src/payments/**/*.cpp
+src/payments/**/*.so
+src/payments/**/*.pyd
+src/payments/**/*.pyx
+src/payments/**/*.pxd
+
+# --- Ignore all Python sources in package, except public API stubs ---
+src/payments/**/*.py
+!src/payments/__init__.py
+!src/payments/public_api.py
+# (Optional) keep these if you have them:
+#!src/payments/cli.py
+#!src/payments/version.py
 
