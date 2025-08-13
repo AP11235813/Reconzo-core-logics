@@ -464,7 +464,7 @@ def map_marketing(
         * mapped_orders["net_delivered_qty"]
     ).where(mapped_orders["daily_order_count"] != 0, 0)
 
-    return mapped_orders, daily_marketing_dict
+    return mapped_orders
 
 
 def map_overhead_payments(
@@ -785,7 +785,7 @@ def map_payments(
             columns={"TransactionTotalAmount_overheads": "marketing"}, inplace=True
         )
     else:
-        mapped_orders, daily_marketing_dict = map_marketing(
+        mapped_orders = map_marketing(
             mapped_orders, daily_marketing_df
         )
 
@@ -848,13 +848,4 @@ def map_payments(
 
     print(f"Code completed!")
 
-    return (
-        mapped_orders,
-        monthly_pairs,
-        order_df,
-        payment_df,
-        payment_pivot,
-        overhead_cols,
-        sku_to_asin_mapper,
-        daily_marketing_dict,
-    )
+    return mapped_orders
