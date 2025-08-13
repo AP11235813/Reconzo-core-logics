@@ -42,7 +42,7 @@ ext_modules = cythonize(
 
 setup(
     name="payments",
-    version="0.2.25",
+    version="0.2.30",
     package_dir={"": "src"},
     packages=find_packages(where="src"),
     ext_modules=ext_modules,
