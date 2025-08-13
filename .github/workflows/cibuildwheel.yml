@@ -20,7 +20,7 @@ jobs:
 
       - name: Build Linux wheels (manylinux)
         run: |
-          cibuildwheel --output-dir wheelhouse -v
+          cibuildwheel --output-dir wheelhouse
 
       - name: Upload linux wheels
         uses: actions/upload-artifact@v4
@@ -38,7 +38,7 @@ jobs:
 
       - name: Build macOS wheels
         run: |
-          cibuildwheel --output-dir wheelhouse -v
+          cibuildwheel --output-dir wheelhouse
 
       - name: Upload macos wheels
         uses: actions/upload-artifact@v4
@@ -57,7 +57,7 @@ jobs:
       - name: Build Windows wheels
         shell: bash
         run: |
-          cibuildwheel --output-dir wheelhouse -v
+          cibuildwheel --output-dir wheelhouse
 
       - name: Upload windows wheels
         uses: actions/upload-artifact@v4
