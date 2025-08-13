@@ -22,9 +22,10 @@ ext_modules = cythonize(
 
 setup(
     name="payments",
-    version="0.2.13",
+    version="0.2.14",
     package_dir={"": "src"},
     packages=find_packages(where="src"),
     ext_modules=ext_modules,
     include_package_data=True,
+    setup_requires=["Cython"]
 )
