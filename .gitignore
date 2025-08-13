@@ -25,3 +25,6 @@ src/inventory/**/*.py
 #!src/payments/cli.py
 #!src/payments/version.py
 
+# -- macOS Finder Metadara
+.DS_Store
+
