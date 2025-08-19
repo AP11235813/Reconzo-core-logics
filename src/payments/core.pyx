@@ -201,6 +201,11 @@ def clean_orders(
         order_df["item-tax"] = order_df["item-tax"].fillna(0)
         order_df["item-price"] = order_df["item-price"] + order_df["item-tax"]
 
+    if not mtr_file_bool:
+        pattern = 'Non-Amazon'
+        non_amazon_sales_mask = order_df['sales-channel'].astype(str).str.match(pattern)
+        order_df = order_df[~non_amazon_sales_mask]
+
     cols_dict = {
         True: [
             "Order id",
@@ -339,14 +344,16 @@ def clean_payments(payment_df: pd.DataFrame, amt_desc_to_remove: list) -> pd.Dat
     oid_match = payment_df["order-id"].astype(str).str.match(pattern1) | payment_df[
         "order-id"
     ].astype(str).str.match(pattern2)
-    sku_match = payment_df["sku"].notna()
+    sku_match = (payment_df["sku"].isna()) | (payment_df["sku"] == 'NA')
+    print(f"{sku_match=}")
+    print(f"{sku_match.sum()=}")
 
-    payment_df = payment_df.assign(is_valid_oid=oid_match, is_valid_sku=sku_match)
+    payment_df = payment_df.assign(is_valid_oid=oid_match, is_valid_sku=~sku_match)
 
     payment_df["classification"] = "all_cost"
     payment_df.loc[oid_match, "classification"] = "order_cost"
-    payment_df.loc[sku_match, "classification"] = "sku_cost"
-    payment_df.loc[oid_match & sku_match, "classification"] = "unit_cost"
+    payment_df.loc[~sku_match, "classification"] = "sku_cost"
+    payment_df.loc[oid_match & ~sku_match, "classification"] = "unit_cost"
     payment_df = payment_df[
         ~payment_df["amount-description"].isin(amt_desc_to_remove)
     ].copy()
@@ -640,7 +647,6 @@ def map_payments(
     start_date: Optional[pd.Timestamp] = None,
     end_date: Optional[pd.Timestamp] = None,
     mtr_file_bool: bool = False,
-    mkt: bool = True,
     incl_tax: bool = True,
 ) -> pd.DataFrame:
     """
@@ -654,12 +660,13 @@ def map_payments(
         e. cogs_df: A dataframe containing monthwise COGS for each sku
         f. start_date: The date from which to start the reconciliation
         g. end_date: The date until which to do the reconciliation
-        h. mtr_file_bool: a Boolean input. Use False for FBA all orders file (default value) and True for MTR files
-        i. mkt: Boolean flag to determine whether we should use the marketing amount from payments or a separate marketing file will be provided. False = use marketing cost from payments file. Default=True
-        j. incl_tax: Boolen flag to calculate this pre-tax or post tax. Default=True - include taxes
+        h. mkt: Boolean flag to determine whether we should use the marketing amount from payments or a separate marketing file will be provided. False = use marketing cost from payments file. Default=True
+        i. incl_tax: Boolen flag to calculate this pre-tax or post tax. Default=True - include taxes
     Note: Dates can be obtained from the order file, but this way we can get the reconciliation for a specific month if required
     """
 
+    mkt = True  ## Setting this to Default True - need to check the logic for when marketing file is unavialble. In the meantime - create a marketing_df file using "TransactionTotalAmount" from payments file and distributing it by days
+    print(f"WARNING: mkt has been set to True by default. \nIn case marketing file is unavailable, create one using data from payments file (TransactionTotalAmount column) and distribute it by days.\n IT IS IMPORTANT TO DISTRIBUTE THE AMOUNTS BY DAYS")
     print(f"Executing code....")
     GARBAGE_DESCRIPTIONS = []
     if mkt:
@@ -706,8 +713,10 @@ def map_payments(
         values="amount",
         aggfunc="sum",
     )
+    print(f"{payment_pivot=}")
     payment_pivot = payment_pivot.reset_index()
     payment_pivot.dropna(axis=1, how="all", inplace=True)
+    print(f"{payment_pivot=}")
     mapped_orders = order_df.merge(
         payment_pivot, on="key", how="left", indicator=True
     )  ## Map orderid X SKU level payments
@@ -719,10 +728,8 @@ def map_payments(
     pmt_types = unit_costs
     print([element.__class__ for element in pmt_types])
     check_df['type'] = pmt_types
-    print(mapped_orders.columns)
     for p in pmt_types:
         mask = check_df['type'] == p
-        print(p, type(p))
         if not pd.isna(p):
             check_df.loc[mask, 'payment'] = payment_df[(payment_df['amount-description'] == p) & (payment_df['classification'] == 'unit_cost')]['amount'].sum()
             check_df.loc[mask, 'mapped'] = mapped_orders[p].sum()
@@ -731,6 +738,7 @@ def map_payments(
 
     print(f"{check_df.columns}")
     print(f"Check DF:\n{check_df}")
+    print(f"Payment pivot after merging on pivoted costs:\n{mapped_orders.columns=}")
 
     ## Drop ccancelled rows
     mapped_orders = mapped_orders.assign(
@@ -860,9 +868,9 @@ def map_payments(
     mapped_orders["sale"] = mapped_orders["sale"].fillna(0)
     mapped_orders["settled_sales"] = mapped_orders["settled_sales"].fillna(0)
     mapped_orders["total_sale_incl_unsettled"] = np.where(
-        mapped_orders["settled_sales"],
         mapped_orders["_merge"] == "both",
-        mapped_orders["sale"],
+        mapped_orders["settled_sales"],
+        mapped_orders["sale"]
     )
     # mapped_orders['settled_sales'] = mapped_orders['Principal']
 
@@ -901,4 +909,4 @@ def map_payments(
 
     print(f"Code completed!")
 
-    return mapped_orders, payment_df
+    return mapped_orders
