@@ -7,6 +7,9 @@ from datetime import timedelta, datetime, date
 import calendar
 from collections import defaultdict
 
+print(f"{'*' * 250}\n")
+print(f"Required files:\norder_df (Amazon orders),\npayment_df (Consolidated payments),\nreturn_df (Returns),\nreplacement_df (Replacements),\ndaily_marketing_df (Marketing),\ncogs_df (COGS),\nstart_date (Optional),\nend_date (Optional),\nmtr_file_bool (Default: False),\nincl_tax (Default: False)")
+print(f"{'*' * 250}\n")
 
 def summarize_by_transaction_files(
     df_transactions: pd.DataFrame,
@@ -328,6 +331,8 @@ def clean_payments(payment_df: pd.DataFrame, amt_desc_to_remove: list) -> pd.Dat
         amt_desc_to_remove: a list of amount-descriptions that have to be removed from payments_df
     """
     cols_to_fill = ["settlement-start-date", "settlement-end-date", "settlement-id"]
+    # force_overheads = ['Debt adjustment against COD Transactions and Non-Transactional Fee Accounts', 'Debt adjustment against Electronic Transaction (Credit Card/Net Banking/GC) Accounts', 'Order Cancellation Charge', 'MiscAdjustment', 'Payable to Amazon']
+    # payment_df.loc[payment_df['amount-description'].isin(force_overheads), 'sku'] = "NA"
     payment_df[cols_to_fill] = payment_df[cols_to_fill].ffill()
 
     payment_df["date"] = pd.to_datetime(
@@ -358,6 +363,13 @@ def clean_payments(payment_df: pd.DataFrame, amt_desc_to_remove: list) -> pd.Dat
         ~payment_df["amount-description"].isin(amt_desc_to_remove)
     ].copy()
     payment_df.rename(columns={"quantity-purchased": "quantity"}, inplace=True)
+
+    ## FORCEFULLY CHANGE ORDER CANCELLATION CHARGE TO all_cost
+    payment_df.loc[payment_df['amount-description'] == "Order Cancellation Charge", 'classification'] = "all_cost"
+
+    ## DEBUGGIN LINE
+    mask = payment_df['amount-description'] == 'Order Cancellation Charge'
+    print(f"{payment_df[mask]['classification']=}")
 
     return payment_df
 
@@ -430,6 +442,7 @@ def map_marketing(
     can expand this function in the future to allocate based on different logics
     """
 
+    daily_marketing_df.columns = daily_marketing_df.columns.astype(str).str.lower().str.strip()
     min_date = mapped_orders["date"].min()
     max_date = mapped_orders["date"].max()
     all_dates = pd.date_range(start=min_date, end=max_date, freq="D")
@@ -529,6 +542,7 @@ def map_overhead_payments(
         overhead_col_sums["key"] = keys_for_month
         overhead_col_sums["classification"] = 'all_cost'
         pure_all_overheads_df = pd.DataFrame(data=overhead_col_sums)
+        pure_all_overheads_df['month'] = m
         monthly_pairs[m]["mapped_orders_overheads"] = pure_all_overheads_df
 
         overlap_cols_sums = {}
@@ -542,6 +556,7 @@ def map_overhead_payments(
         overlap_cols_sums["key"] = keys_for_month
         overlap_cols_sums['classification'] = 'sku_cost'
         overlap_overheads_df = pd.DataFrame(data=overlap_cols_sums)
+        overlap_overheads_df['month'] = m
         monthly_pairs[m]["mapped_orders_overlaps"] = overlap_overheads_df
 
     return monthly_pairs
@@ -637,7 +652,7 @@ def remove_common_cols(df, str_to_check):
 
     return df
 
-def map_payments(
+def map_amazon_payments(
     order_df: pd.DataFrame,
     payment_df: pd.DataFrame,
     return_df: pd.DataFrame,
@@ -665,7 +680,7 @@ def map_payments(
     Note: Dates can be obtained from the order file, but this way we can get the reconciliation for a specific month if required
     """
 
-    mkt = True  ## Setting this to Default True - need to check the logic for when marketing file is unavialble. In the meantime - create a marketing_df file using "TransactionTotalAmount" from payments file and distributing it by days
+    mkt = True  ## Setting this to True - need to check the logic for when marketing file is unavialble. In the meantime - create a marketing_df file using "TransactionTotalAmount" from payments file and distributing it by days
     print(f"WARNING: mkt has been set to True by default. \nIn case marketing file is unavailable, create one using data from payments file (TransactionTotalAmount column) and distribute it by days.\n IT IS IMPORTANT TO DISTRIBUTE THE AMOUNTS BY DAYS")
     print(f"Executing code....")
     GARBAGE_DESCRIPTIONS = []
@@ -816,6 +831,10 @@ def map_payments(
         axis=0,
         ignore_index=True,
     ).fillna(0)
+    print(f"{all_overheads_df=}")
+    for col in all_overheads_df:
+        if col not in ['key', 'classification', 'month']:
+            print(f"{col}:{all_overheads_df[col].sum()}")
 
     all_overlap_df = pd.concat(
         [monthly_pairs[m].get("mapped_orders_overlaps") for m in months],
@@ -823,9 +842,13 @@ def map_payments(
         ignore_index=True,
     ).fillna(0)
 
+    req_cols = list(pure_all_overheads)
+    req_cols.extend(['key'])
+    all_overheads_df_for_merge = all_overheads_df[req_cols].copy()
     mapped_orders = mapped_orders.merge(
-        all_overheads_df[all_overheads_df['classification'] == 'pure_all_overheads'], on="key", how="left", suffixes=["", "_overheads"]
+        all_overheads_df_for_merge, on="key", how="left", suffixes=["", "_overheads"]
     )
+    print(f"{mapped_orders['Order Cancellation Charge'].sum()=}")
     mapped_orders = remove_common_cols(mapped_orders, "_overheads")
 
     mapped_orders[list(overlap_cols)] = mapped_orders[list(overlap_cols)].add(
@@ -909,4 +932,4 @@ def map_payments(
 
     print(f"Code completed!")
 
-    return mapped_orders
+    return mapped_orders, payment_df, all_overheads_df, pure_all_overheads
