@@ -1,4 +1,4 @@
-from .core import map_payments
+from .core import map_amazon_payments
 
 # try:
 # 	from .core import map_payments
