@@ -4,6 +4,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 from collections import defaultdict
+from typing import Tuple, Dict
 
 def read_data(
 	_path: str,
@@ -550,7 +551,7 @@ def create_payment_recon_rangita(
 
 def map_myntra_payments(
 	_path_: str
-	) -> dict:
+	) -> Tuple[Dict, Dict]:
 	"""
 	Main function to control the output
 	"""
