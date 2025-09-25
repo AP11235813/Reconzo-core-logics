@@ -360,8 +360,9 @@ def clean_payments(payment_df: pd.DataFrame, amt_desc_to_remove: list) -> pd.Dat
     payment_df.rename(columns={"quantity-purchased": "quantity"}, inplace=True)
 
     ## FORCEFULLY CHANGE ORDER CANCELLATION CHARGE TO all_cost
+    force_charge_list = ['Order Cancellation Charge', 'OrderCancellationChargeCGST', 'OrderCancellationChargeSGST', 'OrderCancellationChargeIGST']
     payment_df.loc[
-        payment_df["amount-description"] == "Order Cancellation Charge",
+        payment_df["amount-description"].isin(force_charge_list),
         "classification",
     ] = "all_cost"
 
