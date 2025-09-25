@@ -400,7 +400,7 @@ def create_fee_estimator(
 		else:
 			fee_estimate_dict[fee] = {"unsettled": settled[fee].mean()}
 
-	return fee_estimate_dict
+	return dict(fee_estimate_dict)
 
 def estimate_unsettled_orders(
 	data_dict: dict,
