@@ -51,6 +51,7 @@ def read_data(
 				df = pd.concat([df, temp_df], axis=0)
 
 			data_dict[file_name] = df
+			data_dict = dict(data_dict)
 
 	return dict(data_dict)
 
@@ -401,6 +402,8 @@ def create_fee_estimator(
 		else:
 			fee_estimate_dict[fee] = {"unsettled": settled[fee].mean()}
 
+	fee_estimate_dict = dict(fee_estimate_dict)
+
 	return dict(fee_estimate_dict)
 
 def estimate_unsettled_orders(
@@ -415,7 +418,6 @@ def estimate_unsettled_orders(
 	unsettled = mapped_orders[mapped_orders["payment_status"] == "unsettled"].copy()
 	settled = mapped_orders[mapped_orders["payment_status"] == "settled"].copy()
 	all_sales = complete_data_dict["sales"].copy()
-	print(all_sales)
 
 	unsettled_oid = list(set(unsettled["order_id"]))
 	mask = all_sales["order_id"].isin(unsettled_oid)
