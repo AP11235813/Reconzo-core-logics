@@ -51,7 +51,7 @@ def read_data(
 
 			data_dict[file_name] = df
 
-	return data_dict
+	return dict(data_dict)
 
 def get_return_and_rto_dates(
 	data_dict: dict
