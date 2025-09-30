@@ -687,6 +687,14 @@ def map_amazon_payments(
     )
     print(f"{'*' * 250}\n")
 
+    if not payment_df["amount-description"].astype(str).str.contains(r"\bProduct Tax\b").any():
+        payment_df["amount-description"].replace(
+            to_replace=r"^\s*Tax\s*$", 
+            value="Product Tax", 
+            inplace=True,
+            regex=True
+            )
+
     warnings.filterwarnings("once")
 
     ## check if all files are present

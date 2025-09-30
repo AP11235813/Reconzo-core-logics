@@ -1,6 +1,8 @@
 from .amazon import map_amazon_payments
 from .myntra import map_myntra_payments
 
+from fee_audits.amazon import complete_fee_audit_amazon
+
 # try:
 # 	from .core import map_payments
 # except Exception:
