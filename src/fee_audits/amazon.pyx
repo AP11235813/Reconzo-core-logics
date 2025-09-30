@@ -742,7 +742,6 @@ def complete_fee_audit_amazon(
 	data_dict=get_fixed_closing_fees_categories(data_dict)
 	data_dict=calculate_fixed_closing_fees(data_dict)
 
-
 	return data_dict
 
 

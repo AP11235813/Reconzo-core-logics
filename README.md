@@ -1,18 +1,23 @@
 Steps to install
 
-1. Download the installable binaries for your OS from Releases
-2. Create a Python virtual environment (3.9 or above)
-3. Run "pip install <filename>"
-4. In your Python code / module, import the package:
+1. Create a Python virtual environment (3.9 or above)
+2. Run "pip install git+https://github/.com/AP11235813/Reconzo-core-logics.git@vx.x.x"
+3. In your Python code / module, import the package:
+	Following modules are currently active:
+	(a) payments - contains two functions (i) map_amazon_payments (ii) map_myntra_payments
+	(b) fee_audits - contains one function (i) complete_fee_audit_amazon
+
+	For details on function and usage type "help(<function_name>)" in python.
+
 
 Sample Python Code
-	from payments import amazon
-	df = map_payments(order_df, payments_df, return_df, replacement_df, daily_marketing_df, cogs_df, start_date(optional), end_date(optional), mtr_file_bool(optional), mkt(optional), incl_tax(optional)) see Input Arguments below
+	from payments import map_amazon_payments
+	df = map_amazon_payments(order_df, payments_df, return_df, replacement_df, daily_marketing_df, cogs_df, start_date(optional), end_date(optional), mtr_file_bool(optional), mkt(optional), incl_tax(optional)) see Input Arguments below
 	
 	or
 
 	import payments
-	df = payments.map_payments(order_df, payments_df, return_df, replacement_df, daily_marketing_df, cogs_df, start_date(optional), end_date(optional), mtr_file_bool(optional), mkt(optional), incl_tax(optional))
+	df = payments.map_amazon_payments(order_df, payments_df, return_df, replacement_df, daily_marketing_df, cogs_df, start_date(optional), end_date(optional), mtr_file_bool(optional), mkt(optional), incl_tax(optional))
 
 Module information:
 1. The main function is amazon.map_payments which resides within the payments package

@@ -347,7 +347,7 @@ def clean_payments(payment_df: pd.DataFrame, amt_desc_to_remove: list) -> pd.Dat
     oid_match = payment_df["order-id"].astype(str).str.match(pattern1) | payment_df[
         "order-id"
     ].astype(str).str.match(pattern2)
-    sku_match = (payment_df["sku"].isna()) | (payment_df["sku"] == "NA")
+    sku_match = (payment_df["sku"].isna()) | (payment_df["sku"].isin(["NA", "nan"]))
     payment_df = payment_df.assign(is_valid_oid=oid_match, is_valid_sku=~sku_match)
 
     payment_df["classification"] = "all_cost"
@@ -768,6 +768,12 @@ def map_amazon_payments(
     end = pd.to_datetime(end_date).to_period("M")
     months = pd.period_range(start=start, end=end, freq="M")
 
+    cols = ["asin", "sku"]
+    order_df[cols] = order_df[cols].astype(str)
+    payment_df["sku"] = payment_df["sku"].astype(str)
+    mask = payment_df["sku"].astype(str).str.contains(r"\.")
+    payment_df.loc[mask, "sku"] = payment_df.loc[mask, "sku"].astype(str).str.split(".").str[0]
+
     sku_to_asin_mapper = order_df.groupby("sku").agg({"asin": "first"}).to_dict()
     payment_df = payment_df.assign(
         asin=lambda df: df["sku"].map(sku_to_asin_mapper.get("asin")),
@@ -867,12 +873,22 @@ def map_amazon_payments(
     )
     mapped_orders = remove_common_cols(mapped_orders, "_overheads")
 
-    mapped_orders[list(overlap_cols)] = mapped_orders[list(overlap_cols)].add(
-        all_overlap_df[all_overlap_df["classification"] == "overlap_cols"][
-            list(overlap_cols)
-        ],
-        fill_value=0,
-    )  ## For amount-descriptions which fall in multiple classifications, we add the columns
+    print(mapped_orders.columns)
+    existing_cols = [col for col in overlap_cols if col in mapped_orders.columns]
+    missing_cols = [col for col in overlap_cols if col not in mapped_orders.columns]
+
+    if existing_cols:
+        mapped_orders[existing_cols] = mapped_orders[existing_cols].add(
+            all_overlap_df[all_overlap_df["classification"] == "overlap_cols"][
+                list(existing_cols)
+            ],
+            fill_value=0,
+        )
+
+    if missing_cols:
+        mapped_orders[missing_cols] = 0
+
+      ## For amount-descriptions which fall in multiple classifications, we add the columns
     mapped_orders[list(overlap_cols)] = mapped_orders[list(overlap_cols)].fillna(0)
     overhead_cols = list(order_overhead_cols) + list(other_overhead_cols)
     codb_cols = list(unit_costs) + list(overhead_cols)
