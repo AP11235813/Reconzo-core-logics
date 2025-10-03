@@ -777,12 +777,11 @@ def map_amazon_payments(
 
     cols = ["asin", "sku"]
     order_df[cols] = order_df[cols].astype(str)
+    mask = order_df["sku"].str.match(r"^\d+\.0+$")
+    order_df.loc[mask, "sku"] = order_df.loc[mask, "sku"].str.replace(r"\.0+$", "", regex=True)
     payment_df["sku"] = payment_df["sku"].astype(str)
-    mask = payment_df["sku"].astype(str).str.contains(r"\.")
-    payment_df.loc[mask, "sku"] = (
-        payment_df.loc[mask, "sku"].astype(str).str.split(".").str[0]
-    )
-
+    mask = payment_df["sku"].str.match(r"^\d+\.0+$")
+    payment_df.loc[mask, "sku"] = payment_df.loc[mask, "sku"].str.replace(r"\.0+$", "", regex=True)
     sku_to_asin_mapper = order_df.groupby("sku").agg({"asin": "first"}).to_dict()
     payment_df = payment_df.assign(
         asin=lambda df: df["sku"].map(sku_to_asin_mapper.get("asin")),
