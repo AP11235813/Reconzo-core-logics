@@ -767,7 +767,7 @@ def map_myntra_payments(_path_: str) -> Tuple[Dict, Dict]:
     |----------------------------------------------------
     |A combined payment file    |   combined_file       |
     |----------------------------------------------------
-    
+
     Usage:
     ------
     data_dict, fee_estimate_dict = map_myntra_payments(_path_)
@@ -779,7 +779,7 @@ def map_myntra_payments(_path_: str) -> Tuple[Dict, Dict]:
                         use df = data_dict["mapped_orders"] to get the mapped orders file
                         Feel free to explore the other dataframes within the dictionary.
                         data_dict.keys() will give you the other dataframes stored in the dict.
-        
+
         (b) fee_estimate_dict: gives a dictionary of estimated fees.
 
     """

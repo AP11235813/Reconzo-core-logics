@@ -491,11 +491,11 @@ def map_size_bands(
 	table = data_dict["output"]
 
 	if "asin" not in size_band_mapper:
-	size_band_mapper.columns = size_band_mapper.columns.astype(str).str.strip().str.lower()
-	size_band_mapper["sku"] = size_band_mapper["sku"].astype(str).str.split("`").str[1]
-	size_band_mapper["asin"] = size_band_mapper["sku"].map(asin_mapper_dict)
+		size_band_mapper.columns = size_band_mapper.columns.astype(str).str.strip().str.lower()
+		size_band_mapper["sku"] = size_band_mapper["sku"].astype(str).str.split("`").str[1]
+		size_band_mapper["asin"] = size_band_mapper["sku"].map(asin_mapper_dict)
+		
 	size_band_mapper_dict = size_band_mapper.set_index("asin")["size band classification"].to_dict()
-
 	table["size_band"] = table["asin"].map(size_band_mapper_dict)
 	data_dict["output"] = table
 	data_dict["size_band_mapper"] = size_band_mapper_dict

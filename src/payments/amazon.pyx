@@ -360,7 +360,12 @@ def clean_payments(payment_df: pd.DataFrame, amt_desc_to_remove: list) -> pd.Dat
     payment_df.rename(columns={"quantity-purchased": "quantity"}, inplace=True)
 
     ## FORCEFULLY CHANGE ORDER CANCELLATION CHARGE TO all_cost
-    force_charge_list = ['Order Cancellation Charge', 'OrderCancellationChargeCGST', 'OrderCancellationChargeSGST', 'OrderCancellationChargeIGST']
+    force_charge_list = [
+        "Order Cancellation Charge",
+        "OrderCancellationChargeCGST",
+        "OrderCancellationChargeSGST",
+        "OrderCancellationChargeIGST",
+    ]
     payment_df.loc[
         payment_df["amount-description"].isin(force_charge_list),
         "classification",
@@ -687,13 +692,15 @@ def map_amazon_payments(
     )
     print(f"{'*' * 250}\n")
 
-    if not payment_df["amount-description"].astype(str).str.contains(r"\bProduct Tax\b").any():
+    if (
+        not payment_df["amount-description"]
+        .astype(str)
+        .str.contains(r"\bProduct Tax\b")
+        .any()
+    ):
         payment_df["amount-description"].replace(
-            to_replace=r"^\s*Tax\s*$", 
-            value="Product Tax", 
-            inplace=True,
-            regex=True
-            )
+            to_replace=r"^\s*Tax\s*$", value="Product Tax", inplace=True, regex=True
+        )
 
     warnings.filterwarnings("once")
 
@@ -772,7 +779,9 @@ def map_amazon_payments(
     order_df[cols] = order_df[cols].astype(str)
     payment_df["sku"] = payment_df["sku"].astype(str)
     mask = payment_df["sku"].astype(str).str.contains(r"\.")
-    payment_df.loc[mask, "sku"] = payment_df.loc[mask, "sku"].astype(str).str.split(".").str[0]
+    payment_df.loc[mask, "sku"] = (
+        payment_df.loc[mask, "sku"].astype(str).str.split(".").str[0]
+    )
 
     sku_to_asin_mapper = order_df.groupby("sku").agg({"asin": "first"}).to_dict()
     payment_df = payment_df.assign(
@@ -888,7 +897,7 @@ def map_amazon_payments(
     if missing_cols:
         mapped_orders[missing_cols] = 0
 
-      ## For amount-descriptions which fall in multiple classifications, we add the columns
+    ## For amount-descriptions which fall in multiple classifications, we add the columns
     mapped_orders[list(overlap_cols)] = mapped_orders[list(overlap_cols)].fillna(0)
     overhead_cols = list(order_overhead_cols) + list(other_overhead_cols)
     codb_cols = list(unit_costs) + list(overhead_cols)

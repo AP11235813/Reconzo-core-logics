@@ -27,7 +27,7 @@ def standardize_orders(df: pd.DataFrame) -> pd.DataFrame:
         "shipping": "shipping",
         "shipping method": "shopify_payment_method",
         "payment reference": "pg_reference",
-        "refunded amount": "refunded_amount"
+        "refunded amount": "refunded_amount",
     }
 
     df = df[orders_rename_dict.keys()].rename(columns=orders_rename_dict)
@@ -56,7 +56,7 @@ def standardize_orders(df: pd.DataFrame) -> pd.DataFrame:
     df = df.groupby("key", as_index=False).agg(agg_func)
     df["gross_sales"] = df["unit_price"] * df["quantity_ordered"]
     df["sku"] = df["sku"].astype(str)
-    df['order_id'] = df['order_id'].astype(str)
+    df["order_id"] = df["order_id"].astype(str)
 
     return df
 
@@ -109,7 +109,7 @@ def allocate_discounts_to_suborder(df: pd.DataFrame) -> pd.DataFrame:
     total_order_discount_dict = df.groupby("order_id")["discount"].sum()
     df = df.assign(
         tot_discount=lambda x: x["order_id"].map(total_order_discount_dict),
-        disc_allocated=lambda x: x["order_pct_allocation"] * x["tot_discount"]
+        disc_allocated=lambda x: x["order_pct_allocation"] * x["tot_discount"],
     ).drop(columns=["tot_discount"])
 
     return df
@@ -139,6 +139,7 @@ def allocate_shipping_to_suborder(df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
+
 def allocate_refunds_to_suborder(df: pd.DataFrame) -> pd.DataFrame:
     """
     By default, shopify adds refunds to only the first instance of the order_id. We will allocate the refund amount to each sub-order within the order_id
@@ -156,7 +157,7 @@ def allocate_refunds_to_suborder(df: pd.DataFrame) -> pd.DataFrame:
     total_order_refund_dict = df.groupby("order_id")["refunded_amount"].sum()
     df = df.assign(
         tot_refunds=lambda x: x["order_id"].map(total_order_refund_dict),
-        refund_allocated=lambda x: x["order_pct_allocation"] * x["tot_refunds"]
+        refund_allocated=lambda x: x["order_pct_allocation"] * x["tot_refunds"],
     ).drop(columns=["tot_refunds"])
 
     return df
@@ -166,8 +167,15 @@ def calculate_amount_to_be_collected(df: pd.DataFrame) -> pd.DataFrame:
 
     df["gross_sales_incl_shipping"] = df["gross_sales"] + df["shipping"]
     df["selling_price"] = df["gross_sales"] - df["disc_allocated"]
-    df["amount_to_be_collected"] = df["selling_price"] + df["shipping_allocated"] - df['refund_allocated']
-    df["net_sales"] = df["selling_price"] - df["taxes"] + df['shipping_allocated'] - df['refund_allocated']
+    df["amount_to_be_collected"] = (
+        df["selling_price"] + df["shipping_allocated"] - df["refund_allocated"]
+    )
+    df["net_sales"] = (
+        df["selling_price"]
+        - df["taxes"]
+        + df["shipping_allocated"]
+        - df["refund_allocated"]
+    )
 
     return df
 
@@ -188,8 +196,10 @@ def clean_oms(df: pd.DataFrame, oms_name: str) -> pd.DataFrame:
     """
 
     if oms_name == "EZ":
-        mask = df['awb no'].astype(str).str.contains("`")
-        df.loc[mask, 'awb no'] = df.loc[mask, 'awb no'].astype(str).str.split("`").str[1]
+        mask = df["awb no"].astype(str).str.contains("`")
+        df.loc[mask, "awb no"] = (
+            df.loc[mask, "awb no"].astype(str).str.split("`").str[1]
+        )
         # df['reference code'] = df['reference code'].astype(str).str.split("`").str[1]
 
     return df
@@ -227,7 +237,7 @@ def get_required_oms_columns(oms_name: str) -> dict:
             "payment mode",
             "order date",
             "item quantity",
-            "awb no"
+            "awb no",
         ],
         "UC": [
             "display order code",
@@ -240,7 +250,7 @@ def get_required_oms_columns(oms_name: str) -> dict:
             "item type brand",
             "cod",
             "order date as dd/mm/yyyy hh:mm:ss",
-            "tracking number"
+            "tracking number",
         ],
     }
 
@@ -257,7 +267,7 @@ def get_required_oms_columns(oms_name: str) -> dict:
             "payment_method",
             "order_date",
             "quantity_oms",
-            "awbno"
+            "awbno",
         ],
         "UC": [
             "order_id",
@@ -270,7 +280,7 @@ def get_required_oms_columns(oms_name: str) -> dict:
             "brand",
             "payment_method",
             "order_date",
-            "awbno"
+            "awbno",
         ],
     }
 
@@ -298,20 +308,26 @@ def standardize_oms(
         mask = df["payment_method"] == 0
         df.loc[mask, "payment_method"] = "PrePaid"
         df["quantity_oms"] = 1
-        df["order_date"] = pd.to_datetime(df["order_date"], errors="coerce", format="%d/%m/%y %H:%M")
-    elif oms_name == 'EZ':
+        df["order_date"] = pd.to_datetime(
+            df["order_date"], errors="coerce", format="%d/%m/%y %H:%M"
+        )
+    elif oms_name == "EZ":
         # df["order_date"] = pd.to_datetime(df["order_date"], errors="coerce", format="%d/%m/%Y %H:%M:%S")
-        df["order_date"] = pd.to_datetime(df["order_date"], errors="coerce", dayfirst=True)
+        df["order_date"] = pd.to_datetime(
+            df["order_date"], errors="coerce", dayfirst=True
+        )
 
     df["month"] = df["order_date"].dt.to_period("M")
-    df['order_date'] = df['order_date'].dt.date
+    df["order_date"] = df["order_date"].dt.date
     df["month"] = df["month"].astype(str)
     time.sleep(1)
 
     return df
 
 
-def clean_logistics(logistics_dict: dict, logistics_providers: list, oms_df: pd.DataFrame) -> dict:
+def clean_logistics(
+    logistics_dict: dict, logistics_providers: list, oms_df: pd.DataFrame
+) -> dict:
     """
     This function will clean the waybill numbers for delhivery logsitics invoices
     Arguments:
@@ -319,43 +335,51 @@ def clean_logistics(logistics_dict: dict, logistics_providers: list, oms_df: pd.
     """
 
     logistics_dict = change_dict_keys_to_lower_case(logistics_dict)
-    oms_for_mapper = oms_df[~oms_df['awbno'].isna()].copy()
-    oms_for_mapper['awbno'] = oms_for_mapper['awbno'].astype(str)
-    awb_mapper = oms_for_mapper.groupby('awbno')['order_id'].first().to_dict()
+    oms_for_mapper = oms_df[~oms_df["awbno"].isna()].copy()
+    oms_for_mapper["awbno"] = oms_for_mapper["awbno"].astype(str)
+    awb_mapper = oms_for_mapper.groupby("awbno")["order_id"].first().to_dict()
 
     for provider in logistics_dict:
         df = logistics_dict.get(provider)
-        if provider == 'delhivery':
+        if provider == "delhivery":
             # df['waybill_num'] = df['waybill_num'].astype(str).str.split('="').str[1]
             # df['waybill_num'] = df['waybill_num'].astype(str).str.split('"').str[0]
-            df['pickup_pincode'] = pd.NA
-            df['rto_date'] = pd.NA
-            df['courier_code'] = 'DEL'
+            df["pickup_pincode"] = pd.NA
+            df["rto_date"] = pd.NA
+            df["courier_code"] = "DEL"
             logistics_dict[provider] = df
-        elif provider == 'bluedart':
-            df['order_id'] = df['CAWBNO'].astype(str).str.lower().str.strip().map(awb_mapper)
-            df['status'] = pd.NA
-            df['zone'] = pd.NA
-            df['cgst'] = 0
-            df['sgst'] = 0
-            df['igst'] = df['NTOTAMOUNT'] * 0.18                        ### DEBUG: Need to confirm if the amount is before or after GST
-            df['gross_total_logistics'] = df['NTOTAMOUNT'] * 1.18       ### DEBUG: Need to confirm if the amount is before or after GST
-            df['delivery_date'] = pd.NaT
-            df['rto_date'] = pd.NaT
-            df['courier_code'] = "BLDRT"
+        elif provider == "bluedart":
+            df["order_id"] = (
+                df["CAWBNO"].astype(str).str.lower().str.strip().map(awb_mapper)
+            )
+            df["status"] = pd.NA
+            df["zone"] = pd.NA
+            df["cgst"] = 0
+            df["sgst"] = 0
+            df["igst"] = (
+                df["NTOTAMOUNT"] * 0.18
+            )  ### DEBUG: Need to confirm if the amount is before or after GST
+            df["gross_total_logistics"] = (
+                df["NTOTAMOUNT"] * 1.18
+            )  ### DEBUG: Need to confirm if the amount is before or after GST
+            df["delivery_date"] = pd.NaT
+            df["rto_date"] = pd.NaT
+            df["courier_code"] = "BLDRT"
             logistics_dict[provider] = df
-        elif provider == 'dtdc':
-            df['order_id'] = df['Awb No'].astype(str).str.lower().str.strip().map(awb_mapper)
-            df['status'] = pd.NA
-            df['from'] = pd.NA
-            df['zone'] = pd.NA
-            cost_cols = ['Fov Amount', 'Docket', 'Other', 'Freight', 'Fuel']
-            df['net_logistics_cost'] = df[cost_cols].sum(axis=1)
-            df['cgst'] = 0
-            df['sgst'] = 0
-            df['delivery_date'] = pd.NaT
-            df['rto_date'] = pd.NaT
-            df['courier_code'] = "DTDC"
+        elif provider == "dtdc":
+            df["order_id"] = (
+                df["Awb No"].astype(str).str.lower().str.strip().map(awb_mapper)
+            )
+            df["status"] = pd.NA
+            df["from"] = pd.NA
+            df["zone"] = pd.NA
+            cost_cols = ["Fov Amount", "Docket", "Other", "Freight", "Fuel"]
+            df["net_logistics_cost"] = df[cost_cols].sum(axis=1)
+            df["cgst"] = 0
+            df["sgst"] = 0
+            df["delivery_date"] = pd.NaT
+            df["rto_date"] = pd.NaT
+            df["courier_code"] = "DTDC"
             logistics_dict[provider] = df
 
     return logistics_dict, awb_mapper
@@ -387,11 +411,62 @@ def standardize_logistics(logistics_dict: dict) -> pd.DataFrame:
             "total freight",
             "delivery date",
             "rto date",
-            "courier code"
+            "courier code",
         ],
-        "delhivery": ['waybill_num', 'order_id', 'charged_weight', 'pickup_date', 'status', 'pickup_pincode', 'destination_pin', 'zone', 'gross_amount', 'cgst', 'sgst/ugst', 'igst', 'total_amount', 'fpd', 'rto_date', 'courier_code'],
-        "bluedart": ["cawbno", 'order_id', "nactwgt", "dbatchdt", "status", "corgarea", "destpincode", "zone", "ntotamount", "cgst", "sgst", "igst", "gross_total_logistics", "delivery_date", "rto_date", "courier_code"],
-        "dtdc": ['awb no', "order_id", "bill wt", "date", "status", "from", "destination", "zone", "net_logistics_cost", "cgst", "sgst", "tax", "total", "date", "rto_date", "courier_code"]
+        "delhivery": [
+            "waybill_num",
+            "order_id",
+            "charged_weight",
+            "pickup_date",
+            "status",
+            "pickup_pincode",
+            "destination_pin",
+            "zone",
+            "gross_amount",
+            "cgst",
+            "sgst/ugst",
+            "igst",
+            "total_amount",
+            "fpd",
+            "rto_date",
+            "courier_code",
+        ],
+        "bluedart": [
+            "cawbno",
+            "order_id",
+            "nactwgt",
+            "dbatchdt",
+            "status",
+            "corgarea",
+            "destpincode",
+            "zone",
+            "ntotamount",
+            "cgst",
+            "sgst",
+            "igst",
+            "gross_total_logistics",
+            "delivery_date",
+            "rto_date",
+            "courier_code",
+        ],
+        "dtdc": [
+            "awb no",
+            "order_id",
+            "bill wt",
+            "date",
+            "status",
+            "from",
+            "destination",
+            "zone",
+            "net_logistics_cost",
+            "cgst",
+            "sgst",
+            "tax",
+            "total",
+            "date",
+            "rto_date",
+            "courier_code",
+        ],
     }
 
     logistics_standard_col_names = [
@@ -410,7 +485,7 @@ def standardize_logistics(logistics_dict: dict) -> pd.DataFrame:
         "gross_total_logistics",
         "delivery_date",
         "rto_date",
-        "courier_code"
+        "courier_code",
     ]
 
     missing_logistics = [x for x in logistics_dict if x not in rename_dict]
@@ -429,19 +504,34 @@ def standardize_logistics(logistics_dict: dict) -> pd.DataFrame:
         time.sleep(0.2)
         temp_df.columns = logistics_standard_col_names
         temp_df["3pl_logistics_name"] = provider
-        num_cols = ['act_wt', 'net_logistics_cost', 'cgst', 'sgst', 'igst', 'gross_total_logistics']
-        agg_func = {k: ('sum' if k in num_cols else 'first') for k in temp_df.columns if k != 'order_id'}
-        temp_df = temp_df.groupby('order_id', as_index=False).agg(agg_func)
+        num_cols = [
+            "act_wt",
+            "net_logistics_cost",
+            "cgst",
+            "sgst",
+            "igst",
+            "gross_total_logistics",
+        ]
+        agg_func = {
+            k: ("sum" if k in num_cols else "first")
+            for k in temp_df.columns
+            if k != "order_id"
+        }
+        temp_df = temp_df.groupby("order_id", as_index=False).agg(agg_func)
         list_of_dfs.append(temp_df)
 
     df = pd.concat(list_of_dfs, axis=0)
-    mask = df['order_id'].astype(str).str.contains("#")
-    df.loc[mask, 'order_id'] = df.loc[mask, 'order_id'].astype(str).str.split("#").str[1]
-    df['order_id'] = df['order_id'].astype(str)
-    mask = df['order_id'].astype(str).str.contains(".")
-    df['order_id'] = df['order_id'].astype(str)
-    df.loc[mask, 'order_id'] = df.loc[mask, 'order_id'].astype(str).str.split(".").str[0]
-    df['order_id'] = df['order_id'].astype(str)
+    mask = df["order_id"].astype(str).str.contains("#")
+    df.loc[mask, "order_id"] = (
+        df.loc[mask, "order_id"].astype(str).str.split("#").str[1]
+    )
+    df["order_id"] = df["order_id"].astype(str)
+    mask = df["order_id"].astype(str).str.contains(".")
+    df["order_id"] = df["order_id"].astype(str)
+    df.loc[mask, "order_id"] = (
+        df.loc[mask, "order_id"].astype(str).str.split(".").str[0]
+    )
+    df["order_id"] = df["order_id"].astype(str)
 
     return df, logistics_standard_col_names
 
@@ -750,40 +840,40 @@ def calculate_net_delivered_qty(df: pd.DataFrame) -> pd.DataFrame:
 def get_order_id_from_awb(cod_dict: dict, oms_df: pd.DataFrame) -> dict:
     """
     Gets order_id by mapping awb no from the oms file
-    Arguments: 
+    Arguments:
     1. cod_dict: dictionary of cod data
     2. oms_df: oms data
     """
 
     cod_dict = change_dict_keys_to_lower_case(cod_dict)
 
-    oms_df['awbno'] = oms_df['awbno'].astype(str).str.lower().str.strip()
-    awb_mapper = oms_df.groupby('awbno')['order_id'].first().to_dict()
+    oms_df["awbno"] = oms_df["awbno"].astype(str).str.lower().str.strip()
+    awb_mapper = oms_df.groupby("awbno")["order_id"].first().to_dict()
     logistics_providers = list(cod_dict.keys())
     print(f"0.0 Total COD partners: {logistics_providers}")
-    
+
     for provider in logistics_providers:
         print(f"0.1 {provider}")
         df = cod_dict.get(provider)
-        if provider in ['bluedart']:
+        if provider in ["bluedart"]:
             df.columns = df.columns.astype(str).str.strip().str.lower()
-            df['awbno#'] = df['awbno#'].astype(str).str.lower().str.strip()
-            mask = df['awbno#'].str.contains(".0")
-            df.loc[mask, 'awbno#'] = df.loc[mask, 'awbno#'].str.split(".0").str[0]
+            df["awbno#"] = df["awbno#"].astype(str).str.lower().str.strip()
+            mask = df["awbno#"].str.contains(".0")
+            df.loc[mask, "awbno#"] = df.loc[mask, "awbno#"].str.split(".0").str[0]
             x = set(awb_mapper.keys())
-            y = set(df['awbno#'])
+            y = set(df["awbno#"])
             print(f"matching keys: {len(x & y)}")
-            df['order_id'] = df['awbno#'].map(awb_mapper)
+            df["order_id"] = df["awbno#"].map(awb_mapper)
             cod_dict[provider] = df
         elif provider in ["delhivery"]:
             cols = list(df.columns.astype(str).str.lower().str.strip())
             if "order number" not in cols and "waybill_num" in cols:
-                df['order number'] = df['waybill_num'].map(awb_mapper)
+                df["order number"] = df["waybill_num"].map(awb_mapper)
                 cod_dict[provider] = df
-        elif provider in ['dtdc']:
-            df['awbno'] = df['awbno'].astype(str).str.lower().str.strip()
-            df['order_id'] = df['awbno'].map(awb_mapper)
-            cod_dict[provider] = df 
+        elif provider in ["dtdc"]:
+            df["awbno"] = df["awbno"].astype(str).str.lower().str.strip()
+            df["order_id"] = df["awbno"].map(awb_mapper)
+            cod_dict[provider] = df
 
     return cod_dict
 
@@ -802,32 +892,17 @@ def standardize_cod(cod_dict: dict) -> pd.DataFrame:
             "orderno",
             "collected amount",
             "remitted amount",
-            "remitted date"
+            "remitted date",
         ],
-        "delhivery": [
-            "order number",
-            "cod amount",
-            "cod amount",
-            'date'
-        ],
-        "bluedart": [
-            "order_id",
-            "amount",
-            "amount",
-            "deposit date"
-        ],
-        "dtdc": [
-            "order_id",
-            "amount",
-            "remitted amount",
-            "date"
-        ]
+        "delhivery": ["order number", "cod amount", "cod amount", "date"],
+        "bluedart": ["order_id", "amount", "amount", "deposit date"],
+        "dtdc": ["order_id", "amount", "remitted amount", "date"],
     }
     standard_col_names = [
         "order_id",
         "collected_amount",
         "remitted_amount",
-        "remitted_date"
+        "remitted_date",
     ]
 
     new_3pl = [x for x in cod_dict if x not in rename_dict]
@@ -853,18 +928,18 @@ def standardize_cod(cod_dict: dict) -> pd.DataFrame:
         )
         print(f"x.1. df for logistics_name {logistics_name}: {temp_df}")
         agg_func = {
-            col: ('sum' if pd.api.types.is_numeric_dtype(temp_df[col]) else 'first')
+            col: ("sum" if pd.api.types.is_numeric_dtype(temp_df[col]) else "first")
             for col in temp_df.columns
         }
         print(f"x.2. df for logistics_name {logistics_name}: {temp_df}")
-        temp_df = temp_df.groupby('order_id', as_index=False).agg(agg_func)
+        temp_df = temp_df.groupby("order_id", as_index=False).agg(agg_func)
         print(f"x.3. df for logistics_name {logistics_name}: {temp_df}")
         list_of_dfs.append(temp_df)
 
     df = pd.concat(list_of_dfs, axis=0)
     print(f"1. List of df's: {list_of_dfs}")
     print(f"2. df: {df}")
-    df['order_id'] = df['order_id'].astype(str)
+    df["order_id"] = df["order_id"].astype(str)
 
     return df
 
@@ -887,15 +962,17 @@ def clean_cod(cod_dict: dict, oms_df: pd.DataFrame) -> dict:
                 df["orderno"].astype(str).str.strip("#").str[1],
             )
         elif name == "delhivery":
-            mask = (df["order number"].astype(str).str.contains("_"))
-            df.loc[mask, 'order number'] = df.loc[mask, 'order number'].astype(str).str.split("_").str[0]
-            if 'date' in cols:
-                df['date'] = pd.to_datetime(df['date'], errors='coerce', dayfirst=True)
+            mask = df["order number"].astype(str).str.contains("_")
+            df.loc[mask, "order number"] = (
+                df.loc[mask, "order number"].astype(str).str.split("_").str[0]
+            )
+            if "date" in cols:
+                df["date"] = pd.to_datetime(df["date"], errors="coerce", dayfirst=True)
             else:
-                df['date'] = pd.NaT
-        elif name == 'dtdc':
-            df['date'] = pd.NaT
-            
+                df["date"] = pd.NaT
+        elif name == "dtdc":
+            df["date"] = pd.NaT
+
         cod_dict[name] = df
 
     return cod_dict
@@ -921,9 +998,9 @@ def allocate_cod_collection_to_sub_orders(df: pd.DataFrame) -> pd.DataFrame:
     a. df: standardized and mapped order_export file from shopify
     """
 
-    df['collected_amount'] = df['collected_amount'].astype(float)
-    df['remitted_amount'] = df['remitted_amount'].astype(float)
-    df['order_pct_allocation'] = df['order_pct_allocation'].astype(float)
+    df["collected_amount"] = df["collected_amount"].astype(float)
+    df["remitted_amount"] = df["remitted_amount"].astype(float)
+    df["order_pct_allocation"] = df["order_pct_allocation"].astype(float)
 
     df = df.assign(
         cod_collections_allocated=lambda x: x["collected_amount"]
@@ -959,23 +1036,25 @@ def create_amount_collected_df(df: pd.DataFrame) -> pd.DataFrame:
         "shipping_allocated",
         "amount_to_be_collected",
         "refund_allocated",
-        "remitted_date"
+        "remitted_date",
     ]
-    agg_func = {col: ('first' if col == 'remitted_date' else 'sum') for col in req_cols}
+    agg_func = {col: ("first" if col == "remitted_date" else "sum") for col in req_cols}
     remitted_df = df.groupby("order_id", as_index=False).agg(agg_func).fillna(0)
     rename_dict = {
         "cod_collections_allocated": "cod_collection",
         "cod_remittances_allocated": "cod_remittances",
         "pg_collections_allocated": "pg_collection",
         "pg_remittances_allocated": "pg_remittances",
-        "refund_allocated": "amt_refunded"
+        "refund_allocated": "amt_refunded",
     }
     remitted_df.rename(columns=rename_dict, inplace=True)
 
     return remitted_df
 
 
-def add_order_status_to_remitted(df: pd.DataFrame, order_df: pd.DataFrame) -> pd.DataFrame:
+def add_order_status_to_remitted(
+    df: pd.DataFrame, order_df: pd.DataFrame
+) -> pd.DataFrame:
     """
     This function adds final order status to each order
     Arguments:
@@ -983,8 +1062,8 @@ def add_order_status_to_remitted(df: pd.DataFrame, order_df: pd.DataFrame) -> pd
     2. order_df: mapped orders files that contains a minimum of order_id and order_status
     """
 
-    status_mapper = order_df.groupby('order_id')['final_status'].first().to_dict()
-    df['final_status'] = df['order_id'].map(status_mapper)
+    status_mapper = order_df.groupby("order_id")["final_status"].first().to_dict()
+    df["final_status"] = df["order_id"].map(status_mapper)
 
     return df
 
@@ -997,8 +1076,8 @@ def add_pg_name_to_remitted(df: pd.DataFrame, order_df: pd.DataFrame) -> pd.Data
     2. order_df: dataframe of mapped_orders, containing the name of the payment gateway
     """
 
-    pg_mapper = order_df.groupby('order_id')['payment_gateway'].first().to_dict()
-    df['payment_gateway'] = df['order_id'].map(pg_mapper)
+    pg_mapper = order_df.groupby("order_id")["payment_gateway"].first().to_dict()
+    df["payment_gateway"] = df["order_id"].map(pg_mapper)
 
     return df
 
@@ -1011,13 +1090,15 @@ def add_3pl_name_to_remitted(df: pd.DataFrame, order_df: pd.DataFrame) -> pd.Dat
     2. order_df: dataframe of mapped_orders, containing the name of the 3pl provider
     """
 
-    logistics_mapper = order_df.groupby('order_id')['3pl_cod_name'].first().to_dict()
-    df['3pl_cod_name'] = df['order_id'].map(logistics_mapper)
+    logistics_mapper = order_df.groupby("order_id")["3pl_cod_name"].first().to_dict()
+    df["3pl_cod_name"] = df["order_id"].map(logistics_mapper)
 
     return df
 
 
-def add_payment_method_to_remitted(df: pd.DataFrame, order_df: pd.DataFrame) -> pd.DataFrame:
+def add_payment_method_to_remitted(
+    df: pd.DataFrame, order_df: pd.DataFrame
+) -> pd.DataFrame:
     """
     This function adds 3pl name to the remitted dataframe
     Arguments:
@@ -1025,8 +1106,10 @@ def add_payment_method_to_remitted(df: pd.DataFrame, order_df: pd.DataFrame) -> 
     2. order_df: dataframe of mapped_orders, containing the name of the 3pl provider
     """
 
-    payment_method_mapper = order_df.groupby('order_id')['payment_method'].first().to_dict()
-    df['payment_method'] = df['order_id'].map(payment_method_mapper)
+    payment_method_mapper = (
+        order_df.groupby("order_id")["payment_method"].first().to_dict()
+    )
+    df["payment_method"] = df["order_id"].map(payment_method_mapper)
 
     return df
 
@@ -1055,7 +1138,7 @@ def standardize_pg(pg_dict: dict) -> pd.DataFrame:
             "order_receipt",
             "currency",
             "order_notes",
-            "order_id"
+            "order_id",
         ],
         "gokwik": [
             "transaction type",
@@ -1070,7 +1153,7 @@ def standardize_pg(pg_dict: dict) -> pd.DataFrame:
             "transaction rrn",
             "currency",
             "shopify order id",
-            "order_id"
+            "order_id",
         ],
         "payu": [
             "status",
@@ -1085,25 +1168,25 @@ def standardize_pg(pg_dict: dict) -> pd.DataFrame:
             "merchant txn id",
             "settlement currency",
             "shopify_order_id",
-            "order_id"
-        ]
+            "order_id",
+        ],
     }
 
     pg_standardizer = [
-            "type",
-            "amount",
-            "pg_charges",
-            "tax",
-            "debit",
-            "credit",
-            "payment_method",
-            "settled_at",
-            "settled_by",
-            "pg_reference",
-            "currency",
-            "order_notes",
-            "order_id"
-        ]
+        "type",
+        "amount",
+        "pg_charges",
+        "tax",
+        "debit",
+        "credit",
+        "payment_method",
+        "settled_at",
+        "settled_by",
+        "pg_reference",
+        "currency",
+        "order_notes",
+        "order_id",
+    ]
 
     new_pgs = [x for x in pg_dict.keys() if x not in pg_col_selector]
     list_of_dfs = []
@@ -1115,37 +1198,37 @@ def standardize_pg(pg_dict: dict) -> pd.DataFrame:
     for pg in pg_dict.keys():
         df = pg_dict.get(pg)
         df.columns = df.columns.astype(str).str.lower().str.strip()
-        if pg == 'gokwik':
-            df['fee'] = df['fee'] + df['additional fees']
-            df['tax'] = df['tax'] + df['additional tax']
+        if pg == "gokwik":
+            df["fee"] = df["fee"] + df["additional fees"]
+            df["tax"] = df["tax"] + df["additional tax"]
             ## We will have to check which of the two work
             # df['order_id'] = df['shopify order id']
-            df['order_id'] = df['shopify order id'].astype(str).str.split("#").str[1]
+            df["order_id"] = df["shopify order id"].astype(str).str.split("#").str[1]
             pg_dict[pg] = df
 
-        elif pg == 'razorpay':
+        elif pg == "razorpay":
             pattern = r'shopify_order_id":"#(.*?)"'
-            df['order_id'] = df['order_notes'].str.extract(pattern)
+            df["order_id"] = df["order_notes"].str.extract(pattern)
 
-        elif pg == 'payu':
-            df['credit'] = pd.NA
-            df['debit'] = pd.NA
-            df['shopify_order_id'] = pd.NA
-            df['order_id'] = pd.NA
+        elif pg == "payu":
+            df["credit"] = pd.NA
+            df["debit"] = pd.NA
+            df["shopify_order_id"] = pd.NA
+            df["order_id"] = pd.NA
 
         req_cols = pg_col_selector.get(pg)
         renamed_cols = pg_standardizer
         df = df[req_cols]
         df.columns = renamed_cols
-        df['payment_gateway'] = pg
-        mask = df['type'] == 'refund'
-        df.loc[mask, 'amt_refunded'] = df.loc[mask, 'amount']
-        df.loc[mask, 'amount'] = 0
-        df['amt_refunded'] = df['amt_refunded'].fillna(0)
-        df['type'] = df['type'].astype(str).str.lower().str.strip()
-        num_cols = ["amount", "pg_charges", "tax", "debit", "credit", 'amt_refunded']
-        agg_func = {k: ('sum' if k in num_cols else 'first') for k in df.columns}
-        df = df.groupby('order_id', as_index=False).agg(agg_func)
+        df["payment_gateway"] = pg
+        mask = df["type"] == "refund"
+        df.loc[mask, "amt_refunded"] = df.loc[mask, "amount"]
+        df.loc[mask, "amount"] = 0
+        df["amt_refunded"] = df["amt_refunded"].fillna(0)
+        df["type"] = df["type"].astype(str).str.lower().str.strip()
+        num_cols = ["amount", "pg_charges", "tax", "debit", "credit", "amt_refunded"]
+        agg_func = {k: ("sum" if k in num_cols else "first") for k in df.columns}
+        df = df.groupby("order_id", as_index=False).agg(agg_func)
         list_of_dfs.append(df)
 
     pg_df = pd.concat(list_of_dfs, axis=0)
@@ -1174,11 +1257,9 @@ def clean_pg(df: pd.DataFrame) -> pd.DataFrame:
             "pg_reference",
             "currency",
             "payment_gateway",
-            "pg_reference"
+            "pg_reference",
         ]
-        agg_func = {
-            x: ("first" if x in str_cols else "sum") for x in temp_df.columns
-        }
+        agg_func = {x: ("first" if x in str_cols else "sum") for x in temp_df.columns}
         temp_df = temp_df.groupby("order_id", as_index=False).agg(agg_func)
         temp_df["settled_at"] = pd.to_datetime(
             temp_df["settled_at"], errors="coerce", dayfirst=True
@@ -1199,7 +1280,9 @@ def clean_pg(df: pd.DataFrame) -> pd.DataFrame:
         "currency": "pg_currency",
     }
     df.rename(columns=rename_dict, inplace=True)
-    df['total_pg_amount_collected'] = df['gross_pg_amount_collected'] - df['total_pg_refunded']
+    df["total_pg_amount_collected"] = (
+        df["gross_pg_amount_collected"] - df["total_pg_refunded"]
+    )
     df["total_pg_amount_remitted"] = df["total_pg_amount_collected"]
 
     return df
@@ -1215,11 +1298,10 @@ def extract_order_id_for_payu(df: pd.DataFrame, pg_df: pd.DataFrame) -> pd.DataF
 
     oid_dict = df.groupby("pg_reference")["order_id"].first().to_dict()
     mask = pg_df["payment_gateway"] == "payu"
-    pg_df.loc[mask, 'order_id'] = pg_df.loc[mask, 'pg_reference'].map(oid_dict)
-    pg_df.loc[mask, 'shopify_order_id'] = pg_df.loc[mask, 'pg_reference'].map(oid_dict)
+    pg_df.loc[mask, "order_id"] = pg_df.loc[mask, "pg_reference"].map(oid_dict)
+    pg_df.loc[mask, "shopify_order_id"] = pg_df.loc[mask, "pg_reference"].map(oid_dict)
 
     return pg_df
-
 
 
 def allocate_pg_to_suborder(df: pd.DataFrame) -> pd.DataFrame:
@@ -1264,11 +1346,11 @@ def calculate_settled_orders(df: pd.DataFrame) -> pd.DataFrame:
     # df['cod_remittances'] = df['cod_remittances'].replace("no_matches", 0)
     # df['pg_remittances'] = df['pg_remittances'].replace("no_matches", 0)
 
-    df['amount_to_be_collected'] = df['amount_to_be_collected'].astype(float)
-    df['cod_collection'] = df['cod_collection'].astype(float)
-    df['cod_remittances'] = df['cod_remittances'].astype(float)
-    df['pg_collection'] = df['pg_collection'].astype(float)
-    df['pg_remittances'] = df['pg_remittances'].astype(float)
+    df["amount_to_be_collected"] = df["amount_to_be_collected"].astype(float)
+    df["cod_collection"] = df["cod_collection"].astype(float)
+    df["cod_remittances"] = df["cod_remittances"].astype(float)
+    df["pg_collection"] = df["pg_collection"].astype(float)
+    df["pg_remittances"] = df["pg_remittances"].astype(float)
     df = df.assign(
         total_collections=lambda x: x["cod_collection"] + x["pg_collection"],
         total_remittances=lambda x: x["cod_remittances"] + x["pg_remittances"],
@@ -1284,7 +1366,7 @@ def calculate_settled_orders(df: pd.DataFrame) -> pd.DataFrame:
         "pending_collections",
         "pending_remittances",
         "amount_to_be_collected",
-        "amt_refunded"
+        "amt_refunded",
     ]
     df[cols_to_round] = df[cols_to_round].round(2)
 
@@ -1334,7 +1416,7 @@ def allocate_logistics_cost(
         "cgst",
         "sgst",
         "igst",
-        "gross_total_logistics"
+        "gross_total_logistics",
     ]
     missing_logistics_cols = [
         x for x in allocate_cols if x not in logistics_standard_col_names
@@ -1531,9 +1613,7 @@ def map_shopify_payments(
     # cod_df.columns = cod_df.columns.astype(str).str.strip().str.lower()
 
     ## Preprocess and standardize order_df and allocate shipping charges
-    print(
-        f"{'*' * 10}Standardizing orders and calculating amount to be collected..."
-    )
+    print(f"{'*' * 10}Standardizing orders and calculating amount to be collected...")
     order_df = standardize_orders(orders)
     order_df = add_payment_reference_number_for_each_order(order_df)
     order_df = calculate_order_pct_allocation(order_df)
@@ -1566,9 +1646,7 @@ def map_shopify_payments(
     ## Merge orders with oms to get final status and net delivered quantity
     oms_keys = set(oms_df["key"])
     orders_keys = set(order_df["key"])
-    order_df = order_df.merge(
-        oms_df, on="key", how="left", suffixes=["", "_oms"]
-    )
+    order_df = order_df.merge(oms_df, on="key", how="left", suffixes=["", "_oms"])
     if order_df.index.size != len(orders_keys):
         warn_str = f"Duplicates found in merge: len of order_df{len(orders_keys)} len of oms_df: {len(oms_keys)}"
         warnings.warn(warn_str)
@@ -1577,14 +1655,14 @@ def map_shopify_payments(
     order_df["order_date"] = pd.to_datetime(
         order_df["order_date"].replace("no_matches", pd.NaT), errors="coerce"
     )
-    order_df['order_pct_allocation'] = order_df['order_pct_allocation'].replace("no_matches", 1)
+    order_df["order_pct_allocation"] = order_df["order_pct_allocation"].replace(
+        "no_matches", 1
+    )
     order_df = calculate_net_delivered_qty(order_df)
     print(f"{'*' * 10}\nNet delivered quantity calculated")
 
     ## Get logistics file (COD remittances), rename columns, clean the file and map it to orders_df
-    print(
-        f"{'*' * 10}\nEstablishing Cash on Delivery amount collected and remitted..."
-    )
+    print(f"{'*' * 10}\nEstablishing Cash on Delivery amount collected and remitted...")
     cod_dict = get_order_id_from_awb(cod_dict, oms_df)
     cod_dict = clean_cod(cod_dict, oms_df)
     cod_df = standardize_cod(cod_dict)
@@ -1594,16 +1672,12 @@ def map_shopify_payments(
     order_df = allocate_cod_collection_to_sub_orders(order_df)
 
     ## pre-process and standardize pg
-    print(
-        f"{'*' * 10}\nEstablishing Payment Gateway amount collected and remitted..."
-    )
+    print(f"{'*' * 10}\nEstablishing Payment Gateway amount collected and remitted...")
     pg_df = standardize_pg(pg_dict)
     pg_df = clean_pg(pg_df)
     pg_df = extract_order_id_for_payu(order_df, pg_df)
 
-    order_df = order_df.merge(
-        pg_df, on="order_id", how="left", suffixes=["", "_pg"]
-    )
+    order_df = order_df.merge(pg_df, on="order_id", how="left", suffixes=["", "_pg"])
     order_df = allocate_pg_to_suborder(order_df)
     print(f"{'*' * 10}Payment collected and remitted mapped.")
 
@@ -1621,7 +1695,9 @@ def map_shopify_payments(
 
     ## Get logistics costs
     print(f"{'*' * 10}Mapping logistics cost to each suborder...")
-    logistics_dict, awb_mapper = clean_logistics(logistics_dict, logistics_providers, oms_df)
+    logistics_dict, awb_mapper = clean_logistics(
+        logistics_dict, logistics_providers, oms_df
+    )
     logistics_df, logistics_standard_col_names = standardize_logistics(logistics_dict)
     order_df = order_df.merge(
         logistics_df, on="order_id", how="left", suffixes=["", "_logistics"]
@@ -1635,8 +1711,8 @@ def map_shopify_payments(
     cogs_df["sku"] = cogs_df["sku"].astype(str)
     order_df["sku"] = order_df["sku"].astype(str)
 
-    order_df['month'] = order_df['month'].astype(str)
-    cogs_df['month'] = cogs_df['month'].astype(str)
+    order_df["month"] = order_df["month"].astype(str)
+    cogs_df["month"] = cogs_df["month"].astype(str)
 
     order_df = order_df.merge(
         cogs_df, on=["sku", "month"], how="left", suffixes=["", "_cogs"]
@@ -1658,7 +1734,16 @@ def map_shopify_payments(
     order_df = prepare_PnL(order_df, incl_tax, mis_bool)
     print(f"{'*' * 10}Code executed successfully!!")
 
-    return order_df, oms_df, cod_df, remitted_df, pg_df, logistics_df, cogs_df, awb_mapper
+    return (
+        order_df,
+        oms_df,
+        cod_df,
+        remitted_df,
+        pg_df,
+        logistics_df,
+        cogs_df,
+        awb_mapper,
+    )
 
 
 ### ----- USE SHOPIFY order_export FILE FOR THIS PIECE OF CODE
