@@ -39,13 +39,13 @@ def read_files(
 						"replacements": "agg_replacements",
 						"shipments": "agg_shipments",
 						"ratecard": "rate_card",
-						"zone_mapper": "zone_mapper",
-						"category_mapper": "category_mapper",
+						"category_mapper": "commission_category_mapper",
 						"weight_mapper": "weight_mapper",
 						"postcode_mapper": "postcode",
 						"mtr": "mtr",
 						"size_band_mapper": "size_band_mapper",
-						"category_mapper_fixed_closing": "category_mapper_fixed_closing"
+						"category_mapper_fixed_closing": "fixed_closing_category_mapper",
+						"fulfilment model mapper": "fultilment_model_mapper"
 					}
 	) -> dict:
 	"""
@@ -167,6 +167,7 @@ def get_details_against_keys(
 
 	table = data_dict["output"].copy()
 	order = data_dict["orders"].copy()
+	model_mapper = data_dict["fultilment_model_mapper"].copy()
 	order=create_keys(order)
 
 	order_date_mapper = order.groupby("key")["purchase-date"].first().to_dict()
@@ -175,6 +176,7 @@ def get_details_against_keys(
 	table["asin"] = table["key"].astype(str).str.split("@").str[1]
 	table["order_date"] = table["key"].map(order_date_mapper)
 	table["quantity"] = table["key"].map(quantity_mapper)
+	table["model"] = table["order-id"].map(model_mapper)
 	data_dict["order"] = order
 	data_dict["output"] = table
 	data_dict["order_date_mapper"] = order_date_mapper
@@ -227,7 +229,7 @@ def create_referral_category_mapper(
 
 	df = pd.DataFrame(list(category_mapper.items()), columns=["asin", "category"])
 	df["product-name"] = df["asin"].map(asin_mapper)
-	df.to_csv("category_mapper.csv", index=False)
+	df.to_csv("commission_category_mapper.csv", index=False)
 	data_dict["category_mapper"] = df
 
 	return data_dict
@@ -368,17 +370,19 @@ def calculate_shipping_weights(
 	weight_mapper = data_dict["weight_mapper"]
 	table = data_dict["output"]
 	weight_mapper.columns = weight_mapper.columns.astype(str).str.lower().str.strip()
-	if oms_name == "EZ":
-		weight_mapper["sku"] = weight_mapper["sku"].astype(str).str.split("`").str[1]
-		weight_mapper.rename(
-			columns={
-			"weight(gm)": "dead_weight",
-			"length(cm)": "l",
-			"width(cm)": "b",
-			"height(cm)": "h"
-			}, 
-			inplace=True
-			)
+	req_cols = ["l", "b", "h", "dead_weight"]
+	if req_cols not in weight_mapper:
+		if oms_name == "EZ":
+			weight_mapper["sku"] = weight_mapper["sku"].astype(str).str.split("`").str[1]
+			weight_mapper.rename(
+				columns={
+				"weight(gm)": "dead_weight",
+				"length(cm)": "l",
+				"width(cm)": "b",
+				"height(cm)": "h"
+				}, 
+				inplace=True
+				)
 
 	orders = data_dict["orders"]
 
@@ -393,6 +397,7 @@ def calculate_shipping_weights(
 	
 	data_dict["output"] = table
 	data_dict["shipping_weight_mapper"] = shipping_weight_mapper
+	data_dict["weight_mapper"] = weight_mapper
 
 	return data_dict
 
@@ -474,7 +479,8 @@ def map_zones(
 	return data_dict
 
 def map_size_bands(
-	data_dict: dict
+	data_dict: dict,
+	oms_name: str="EZ"
 	) -> dict:
 	"""
 	Maps size band for each SKU
@@ -484,6 +490,7 @@ def map_size_bands(
 	asin_mapper_dict = data_dict["asin_mapper"]
 	table = data_dict["output"]
 
+	if "asin" not in size_band_mapper:
 	size_band_mapper.columns = size_band_mapper.columns.astype(str).str.strip().str.lower()
 	size_band_mapper["sku"] = size_band_mapper["sku"].astype(str).str.split("`").str[1]
 	size_band_mapper["asin"] = size_band_mapper["sku"].map(asin_mapper_dict)
@@ -635,7 +642,7 @@ def create_fixed_closing_category_mapper(
 
 	df = pd.DataFrame(list(category_mapper_fixed_closing.items()), columns=["asin", "category_fixed_closing"])
 	df["product-name"] = df["asin"].map(asin_mapper)
-	df.to_csv("category_mapper_fixed_closing.csv", index=False)
+	df.to_csv("fixed_closing_category_mapper.csv", index=False)
 	data_dict["category_mapper_fixed_closing"] = df
 
 	return data_dict
@@ -692,8 +699,139 @@ def complete_fee_audit_amazon(
 	ixd_flag: bool=False
 	) -> dict:
 	"""
-	Complete's the fee audit for Amazon
+	Complete fee audit for Amazon. This required the following files:
+
+    ||------------------------------|------------------------------|------------------------------||
+    || File required                | Naming convention            | Remarks                      ||
+    ||------------------------------|------------------------------|------------------------------||
+    || Payments file                | agg_payments                 | As downloaded from the API   ||
+    ||------------------------------|------------------------------|------------------------------||
+    || orders                       | agg_orders                   | As downloaded from the API   ||
+    ||------------------------------|------------------------------|------------------------------||
+    || returns                      | agg_returns                  | As downloaded from the API   ||
+    ||------------------------------|------------------------------|------------------------------||
+    || mfn_returns                  | agg_mfn-returns              | As downloaded from the API   ||
+    ||------------------------------|------------------------------|------------------------------||
+    || replacements                 | agg_replacements             | As downloaded from the API   ||
+    ||------------------------------|------------------------------|------------------------------||
+    || shipment                     | agg_shipments                | As downloaded from the API   ||
+    ||------------------------------|------------------------------|------------------------------||
+    || Updated rate card            | rate_card                    | Prepared by Reconzo          ||
+    ||------------------------------|------------------------------|------------------------------||
+    || MTR                          | mtr                          | Downloaded from seller       ||
+    ||                              |                              | central website.             ||
+    ||------------------------------|------------------------------|------------------------------||
+    || Weight mapper                | weight_mapper                | This is derived from WMS or  ||
+    ||                              |                              | fed manually. Should contain ||
+    ||                              |                              | 'l', 'b', 'h' and            ||
+    ||                              |                              | 'dead_weight' columns        ||
+    ||------------------------------|------------------------------|------------------------------||
+    || postcode mapper              | postcode                     | Prepared by Reconzo          ||
+    ||------------------------------|------------------------------|------------------------------||
+    || fulfilment model mapper      | fulfilment_model_mapper      | from client. Must contain    ||
+    ||                              |                              | 'order-id' and 'model' fileds||
+    ||------------------------------|------------------------------|------------------------------||
+    || size band mapper             | size_band_mapper             | Should contain "asin" and    ||
+    ||                              |                              | "size_band_classification"   ||
+    ||                              |                              | columns                      ||
+    ||------------------------------|------------------------------|------------------------------||
+    || commission_category mapper   | commission_category_mapper   | The code prepares a category ||
+    || [OPTIONAL]                   |                              | mapper. However, it needs    ||
+    ||                              |                              | refinement. File is stored   ||
+    ||                              |                              | in the same location. Rerun  ||
+    ||                              |                              | the code after making        ||
+    ||                              |                              | refinements.                 ||
+    ||------------------------------|------------------------------|------------------------------||
+    || fixed closing category mapper| fixed_closing_category_mapper| The code prepares a category ||
+    || [OPTIONAL]                   |                              | mapper. However, it needs    ||
+    ||                              |                              | refinement. File is stored   ||
+    ||                              |                              | in the same location. Rerun  ||
+    ||                              |                              | the code after making        ||
+    ||                              |                              | refinements.                 ||
+    ||------------------------------|------------------------------|------------------------------||
+
+
+    Parameters:
+    -----------
+	_path_: string
+		The path to where all the above files reside
+
+	req_fee_types: list
+		List of fee types to audit. Default is ["Principal", "Product Tax", "FBA Weight Handling Fee", 
+		"Fixed closing fee", "FBA Pick & Pack Fee", "Commission", "Technology Fee", "TechnologyFee", 
+		"Refund commission", "RemovalComplete", "Amazon Easy Ship Charges", "Storage"]
+
+	oms_name: string
+		Name of the OMS used ("EZ" for EasyEcom and "UC for Unicommerce). Default is "EZ".
+
+	step_level: string
+		STEP Level of the client. Default is "Standard". First letter needs to be Capitalized
+		valid entries are ["Premium", "Advanced", "Standard", "Basic"]
+
+	ixd_flag: Boolean
+		Whether the client is using IXD for fulfilment. Default is False
+
+	Usage:
+	------
+	data_dict = complete_fee_audit_amazon(_path_=path, req_fee_types=list, oms_name="EZ", step_level="Basic", ixd_flag=True)
+
+	Output:
+	-------
+	data_dict: Dictionary
+		A dictionary containing the fee audit. Final file is stored in data_dict["output"]
+		Feel free to explotre other key-value pairs within the dicitonary
+
 	"""
+
+	print(f"Complete fee audit for Amazon. This required the following files:")
+	print(f"||------------------------------|------------------------------|------------------------------||")
+	print(f"|| File required                | Naming convention            | Remarks                      ||")
+	print(f"||------------------------------|------------------------------|------------------------------||")
+	print(f"|| Payments file                | agg_payments                 | As downloaded from the API   ||")
+	print(f"||------------------------------|------------------------------|------------------------------||")
+	print(f"|| orders file                  | agg_orders                   | As downloaded from the API   ||")
+	print(f"||------------------------------|------------------------------|------------------------------||")
+	print(f"|| returns                      | agg_returns                  | As downloaded from the API   ||")
+	print(f"||------------------------------|------------------------------|------------------------------||")
+	print(f"|| mfn returns                  | agg_mfn-returns              | As downloaded from the API   ||")
+	print(f"||------------------------------|------------------------------|------------------------------||")
+	print(f"|| replacements                 | agg_replacements             | As downloaded from the API   ||")
+	print(f"||------------------------------|------------------------------|------------------------------||")
+	print(f"|| shipments                    | agg_shipments                | As downloaded from the API   ||")
+	print(f"||------------------------------|------------------------------|------------------------------||")
+	print(f"|| Updated rate card            | rate_card                    | Prepared by Reconzo          ||")
+	print(f"||------------------------------|------------------------------|------------------------------||")
+	print(f"|| MTR                          | mtr                          | Downloaded from seller       ||")
+	print(f"||                              |                              | central website.             ||")
+	print(f"||------------------------------|------------------------------|------------------------------||")
+	print(f"|| Weight mapper                | weight_mapper                | This is derived from WMS or  ||")
+	print(f"||                              |                              | fed manually. Should contain ||")
+	print(f"||                              |                              | 'l', 'b', 'h' and            ||")
+	print(f"||                              |                              | 'dead_weight' columns        ||")
+	print(f"||------------------------------|------------------------------|------------------------------||")
+	print(f"|| postcode mapper              | postcode                     | Prepared by Reconzo          ||")
+	print(f"||------------------------------|------------------------------|------------------------------||")
+	print(f"|| fulfilment model mapper      | fulfilment_model_mapper      | from client, must contain    ||")
+	print(f"||                              |                              | 'order-id' and 'model' fields||")
+	print(f"||------------------------------|------------------------------|------------------------------||")
+	print(f"|| size band mapper             | size_band_mapper             | Should contain 'asin' and    ||")
+	print(f"||                              |                              | 'size_band_classification'   ||")
+	print(f"||                              |                              | columns                      ||")
+	print(f"||------------------------------|------------------------------|------------------------------||")
+	print(f"|| commission_category mapper   | commission_category_mapper   | The code prepares a category ||")
+	print(f"|| [OPTIONAL]                   |                              | mapper. However, it needs    ||")
+	print(f"||                              |                              | refinement. File is stored   ||")
+	print(f"||                              |                              | in the same location. Rerun  ||")
+	print(f"||                              |                              | the code after making        ||")
+	print(f"||                              |                              | refinements.                 ||")
+    print(f"||------------------------------|------------------------------|------------------------------||")
+	print(f"|| fixed closing category mapper| fixed_closing_category_mapper| The code prepares a category ||")
+	print(f"|| [OPTIONAL]                   |                              | mapper. However, it needs    ||")
+	print(f"||                              |                              | refinement. File is stored   ||")
+	print(f"||                              |                              | in the same location. Rerun  ||")
+	print(f"||                              |                              | the code after making        ||")
+	print(f"||                              |                              | refinements.                 ||")
+    print(f"||------------------------------|------------------------------|------------------------------||")
 
 	valid_step_levels = ["Premium", "Advanced", "Standard", "Basic"]
 	if step_level not in valid_step_levels:
@@ -733,7 +871,7 @@ def complete_fee_audit_amazon(
 	table.drop(columns=["rnd"], inplace=True)
 	data_dict["output"] = table
 
-	data_dict=map_size_bands(data_dict)
+	data_dict=map_size_bands(data_dict, oms_name="EZ")
 	data_dict=calculate_shipping_fee(data_dict, step_level, ixd_flag)
 	print(f"After merging size of the dataframe: {data_dict['output'].index.size}")
 	data_dict=map_pick_and_pack_fee(data_dict)
