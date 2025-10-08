@@ -1587,6 +1587,9 @@ def map_shopify_payments(
     Note: pg_df will be required when shopify_payments_df is None. Essentially, there has to be atleast one place from which payments are gathered and reconciled.
 
     Returns a dataframe showing the reconciliation and associated payments prepared for the MIS
+
+    Output:
+    -------
     """
     warnings.warn(
         f"Always ensure orderID's in both OMS and Shopify files are converted to the same type. \nThis code does not process order ID. If match is not found, the code witll throw an error\n"

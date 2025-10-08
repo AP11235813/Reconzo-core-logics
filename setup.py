@@ -36,13 +36,13 @@ from Cython.Build import cythonize
 import glob
 
 ext_modules = cythonize(
-    glob.glob("src/payments/*.pyx") + glob.glob("src/fee_audits/*.pyx"),
+    glob.glob("src/payments/*.pyx") + glob.glob("src/fee_audits/*.pyx") + glob.glob("src/mis/*.pyx"),
     compiler_directives={"language_level": "3"}
 )
 
 setup(
     name="payments",
-    version="2.4.5",
+    version="3.5.6",
     package_dir={"": "src"},
     packages=find_packages(where="src"),
     ext_modules=ext_modules,

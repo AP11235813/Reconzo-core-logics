@@ -35,7 +35,7 @@ def read_files(
         "payments": "agg_payments",
         "orders": "agg_orders",
         "returns": "agg_returns",
-        "mfn_returns": "agg_mfn-returns",
+        "mfn_returns": "agg_returns-mfn",
         "replacements": "agg_replacements",
         "shipments": "agg_shipments",
         "ratecard": "rate_card",

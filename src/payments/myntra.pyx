@@ -66,7 +66,6 @@ def get_return_and_rto_dates(data_dict: dict) -> dict:
     for file_type in file_types:
         df = data_dict[file_type]
         df["status"] = "canceled"
-        print(df.columns)
         mask = df["order_rto_date"].isna()
         df.loc[~mask, "status"] = "rto"
         df["order_rto_date"] = df["order_rto_date"].combine_first(
@@ -230,17 +229,31 @@ def calculate_platform_discount(data_dict: dict) -> dict:
 
 def assign_signs_for_deductions(
     data_dict: dict,
-    deduction_cols=[
-        "total_discount_amount",
-        "tcs_amount",
-        "tds_amount",
-        "platform_fees",
-        "shipping_fee",
-        "fixed_fee",
-        "pick_and_pack_fee",
-        "payment_gateway_fee",
-        "total_tax_on_logistics",
-    ],
+    deduction_cols_dict={
+        "payment_forward":  [
+                            "total_discount_amount",
+                            "tcs_amount",
+                            "tds_amount",
+                            "platform_fees",
+                            "shipping_fee",
+                            "fixed_fee",
+                            "pick_and_pack_fee",
+                            "payment_gateway_fee",
+                            "total_tax_on_logistics",
+                            ],
+        "payment_reverse":  [
+                            "seller_product_amount",
+                            "total_discount_amount",
+                            "tcs_amount",
+                            "tds_amount",
+                            "platform_fees",
+                            "shipping_fee",
+                            "fixed_fee",
+                            "pick_and_pack_fee",
+                            "payment_gateway_fee",
+                            "total_tax_on_logistics",
+                            ]
+                        }
 ) -> dict:
     """
     Assigns a sign for each payment deduction
@@ -249,6 +262,7 @@ def assign_signs_for_deductions(
     file_types = ["payment_reverse", "payment_forward"]
     for file_type in file_types:
         df = data_dict[file_type]
+        deduction_cols = deduction_cols_dict.get(file_type)
         df[deduction_cols] = df[deduction_cols] * (-1)
         data_dict[file_type] = df
 
@@ -261,14 +275,13 @@ def reverse_entries_for_payment_reverse(data_dict: dict) -> dict:
     """
 
     file_type = "payment_reverse"
-    non_reverse_entries = ["order_release_id", "shipping_fee", "total_tax_on_logistics"]
+    non_reverse_entries = ["order_release_id", "shipping_fee", "total_tax_on_logistics", "total_actual_settlement"]
     df = data_dict[file_type]
     cols = [col for col in df.columns if col not in non_reverse_entries]
     df[cols] = df[cols] * (-1)
     data_dict[file_type] = df
 
     return data_dict
-
 
 def correct_dates(
     data_dict: dict,
@@ -421,8 +434,10 @@ def create_single_payment_file(data_dict: dict) -> dict:
     merge forward and reverse dataframes into 1 single file
     """
 
-    pg_forward = data_dict["payment_forward"]
-    pg_reverse = data_dict["payment_reverse"]
+    pg_forward = data_dict["payment_forward"].copy()
+    pg_reverse = data_dict["payment_reverse"].copy()
+    reverse_cols = ["mrp", "discount", "net_realized_sale"]
+    pg_reverse[reverse_cols] = pg_reverse[reverse_cols] * (-1)
     non_sum_cols = ["settlement_date", "order_id"]
     agg_func = {k: ("last" if k in non_sum_cols else "sum") for k in pg_forward.columns}
     final_payment = (
@@ -820,10 +835,10 @@ def map_myntra_payments(_path_: str) -> Tuple[Dict, Dict]:
     data_dict = get_order_status(data_dict)
 
     sales = data_dict["sales"]
-    print(f"No. of rows in sales: {sales.index.size}")
 
     data_dict = create_single_payment_file(data_dict)
     data_dict = map_payments(data_dict)
+
     data_dict = calculate_final_settlement(data_dict)
     data_dict = get_returned_qty(data_dict)
     data_dict = calculate_net_delivered_quantity(data_dict)
@@ -834,6 +849,7 @@ def map_myntra_payments(_path_: str) -> Tuple[Dict, Dict]:
     )
     data_dict = create_mis(data_dict)
     data_dict = create_payment_recon_rangita(data_dict, complete_data_dict)
+
 
     some_path = Path(_path_)
     file_name_mid = some_path.stem

@@ -528,8 +528,36 @@ def add_taxes(data_dict: dict) -> dict:
 
 def create_amazon_india_mis(_path_: str = "/Users/ap/Desktop/mis/amazon") -> dict:
     """
-    Creates Amazon MIS
+    Creates Amazon MIS. Requires all files to be in a certain location.
 
+    |--------------------|--------------------|----------------------------------------|
+    | File               | Naming convention  | Remarks                                |
+    |--------------------|--------------------|----------------------------------------|
+    | Payments           | agg_payments       | From API                               |
+    |--------------------|--------------------|----------------------------------------|
+    |                    |                    | Download from Amazon > Reports > Tax   |
+    | MTR (B2C)          | b2cReport          | Document Library > Merchant Tax Report |
+    |                    |                    | > GST Monthly Reports B2C              |
+    |--------------------|--------------------|----------------------------------------|
+    |                    |                    | Download from Amazon > Reports > Tax   |
+    | MTR (B2B)          | b2bReport          | Document Library > Merchant Tax Report |
+    |                    |                    | > GST Monthly Reports B2B              |
+    |--------------------|--------------------|----------------------------------------|
+
+    Only the above reports are required. Returns / Replacements etc. are all optional.
+
+    Parameters:
+    -----------
+    _path_: String
+        Path to the folder with the location of the files
+
+    Output:
+    -------
+    data_dict: Dictionary
+        A dictionary containing dataframes. The MIS is stored in data_dict["mis"].
+        Feel feree to explore other dataframes that are in the dictionary.
+
+    -----------------------------------------------------------------------------------
     """
 
     print(f"Ingesting files....")
